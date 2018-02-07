@@ -92,6 +92,13 @@ config ARM64
 config 64BIT
 	def_bool y
 
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+	 On embedded linux device, we try to collect more information from
+	 bootloader to kernel. eg. powerup reason.
+
 config ARCH_PHYS_ADDR_T_64BIT
 	def_bool y
 
