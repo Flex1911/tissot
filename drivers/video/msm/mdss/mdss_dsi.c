@@ -27,12 +27,14 @@
 #include <linux/msm-bus.h>
 #include <linux/pm_qos.h>
 
+
 #include "mdss.h"
 #include "mdss_panel.h"
 #include "mdss_dsi.h"
 #include "mdss_debug.h"
 #include "mdss_dsi_phy.h"
 #include "mdss_dba_utils.h"
+#include <linux/hqsysfs.h>
 
 #define XO_CLK_RATE	19200000
 #define CMDLINE_DSI_CTL_NUM_STRING_LEN 2
@@ -44,6 +46,9 @@ static struct mdss_dsi_data *mdss_dsi_res;
 #define DSI_ENABLE_PC_LATENCY PM_QOS_DEFAULT_VALUE
 
 static struct pm_qos_request mdss_dsi_pm_qos_request;
+
+int panel_suspend_reset_flag = 0;
+int panel_suspend_power_flag = 0;
 
 static void mdss_dsi_pm_qos_add_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -271,12 +276,15 @@ static int mdss_dsi_regulator_init(struct platform_device *pdev,
 
 	return rc;
 }
+#ifdef CONFIG_XIAOMI_D2
+extern int ft8716_suspend;
+int acc_vreg = 0;
+#endif
 
-static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
+ int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		ret = -EINVAL;
@@ -291,16 +299,49 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 		pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
 		ret = 0;
 	}
-
 	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
-		pr_debug("reset disable: pinctrl not enabled\n");
+			pr_debug("reset disable: pinctrl not enabled\n");
 
-	ret = msm_dss_enable_vreg(
+#ifdef CONFIG_XIAOMI_D2
+	printk("D2 msm_dss_disable_vreg \n ");
+
+	if ((panel_suspend_power_flag != 3) && acc_vreg) {
+		ret = msm_dss_enable_vreg(
 		ctrl_pdata->panel_power_data.vreg_config,
 		ctrl_pdata->panel_power_data.num_vreg, 0);
+		acc_vreg--;
+		printk("set 5V low : panel_suspend_power_flag : %d acc_vreg : %d\n", panel_suspend_power_flag, acc_vreg);
+		if (ret)
+			pr_err("%s: failed to disable vregs for %s\n",
+			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+	} else{
+		if (!ft8716_gesture_func_on && ft8716_suspend && acc_vreg) {
+			ret = msm_dss_enable_vreg(
+					ctrl_pdata->panel_power_data.vreg_config,
+					ctrl_pdata->panel_power_data.num_vreg, 0);
+			printk("set 5V low : panel_suspend_power_flag : %d acc_vreg : %d\n", panel_suspend_power_flag, acc_vreg);
+			acc_vreg--;
+			printk("%s acc_vreg : %d\n", __func__, acc_vreg);
+			if (ret)
+				pr_err("%s: failed to disable vregs for %s\n",
+					 __func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+
+		}
+
+	}
+#else
+	printk("mido lite msm_dss_disable_vreg \n ");
+
+	if (!panel_suspend_power_flag) {
+		ret = msm_dss_enable_vreg(
+				ctrl_pdata->panel_power_data.vreg_config,
+				ctrl_pdata->panel_power_data.num_vreg, 0);
 	if (ret)
 		pr_err("%s: failed to disable vregs for %s\n",
-			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+				__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+	}
+
+#endif
 
 end:
 	return ret;
@@ -318,7 +359,22 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
-
+#ifdef CONFIG_XIAOMI_D2
+	printk("%s before acc_vreg : %d\n", __func__, acc_vreg);
+       if (!acc_vreg) {
+		ret = msm_dss_enable_vreg(
+		ctrl_pdata->panel_power_data.vreg_config,
+		ctrl_pdata->panel_power_data.num_vreg, 1);
+		acc_vreg++ ;
+		printk("%s acc_vreg : %d\n", __func__, acc_vreg);
+		if (ret) {
+			pr_err("%s: failed to enable vregs for %s\n",
+				__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+			return ret;
+		}
+	}
+#else
+printk("mido lite msm_dss_enable_vreg \n ");
 	ret = msm_dss_enable_vreg(
 		ctrl_pdata->panel_power_data.vreg_config,
 		ctrl_pdata->panel_power_data.num_vreg, 1);
@@ -327,6 +383,7 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
 		return ret;
 	}
+#endif
 
 	/*
 	 * If continuous splash screen feature is enabled, then we need to
@@ -338,7 +395,6 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 		!pdata->panel_info.mipi.lp11_init) {
 		if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
 			pr_debug("reset enable: pinctrl not enabled\n");
-
 		ret = mdss_dsi_panel_reset(pdata, 1);
 		if (ret)
 			pr_err("%s: Panel reset failed. rc=%d\n",
@@ -438,7 +494,7 @@ int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 
 	switch (power_state) {
 	case MDSS_PANEL_POWER_OFF:
-		ret = mdss_dsi_panel_power_off(pdata);
+			ret = mdss_dsi_panel_power_off(pdata);
 		break;
 	case MDSS_PANEL_POWER_ON:
 		if (mdss_dsi_is_panel_on_ulp(pdata)) {
@@ -2824,12 +2880,14 @@ static struct device_node *mdss_dsi_pref_prim_panel(
  *
  * returns pointer to panel node on success, NULL on error.
  */
+
+static char panel_name[MDSS_MAX_PANEL_LEN] = "";
+
 static struct device_node *mdss_dsi_find_panel_of_node(
 		struct platform_device *pdev, char *panel_cfg)
 {
 	int len, i = 0;
 	int ctrl_id = pdev->id - 1;
-	char panel_name[MDSS_MAX_PANEL_LEN] = "";
 	char ctrl_id_stream[3] =  "0:";
 	char *str1 = NULL, *str2 = NULL, *override_cfg = NULL;
 	char cfg_np_name[MDSS_MAX_PANEL_LEN] = "";
@@ -2888,11 +2946,30 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 				panel_name[i] = *(str1 + i);
 			panel_name[i] = 0;
 		}
-		pr_info("%s: cmdline:%s panel_name:%s\n",
+		pr_err("%s: cmdline:%s panel_name:%s\n",
 			__func__, panel_cfg, panel_name);
+
+
 		if (!strcmp(panel_name, NONE_PANEL))
 			goto exit;
 
+		if (!strcmp(panel_name, "qcom,mdss_dsi_td4310_fhd_video")) {
+		panel_suspend_reset_flag = 1;
+		panel_suspend_power_flag = 1;
+		hq_regiser_hw_info(HWID_LCM, "incell, vendor:tianma, IC:td4310(synaptics)");
+		} else if (!strcmp(panel_name, "qcom,mdss_dsi_otm1911_fhd_video")) {
+			panel_suspend_reset_flag = 2;
+			panel_suspend_power_flag = 2;
+			hq_regiser_hw_info(HWID_LCM, "GFF, vendor:tianma, IC:otm1911(focal)");
+			} else if (!strcmp(panel_name, "qcom,mdss_dsi_ft8716_fhd_video")) {
+				panel_suspend_reset_flag = 3;
+				panel_suspend_power_flag = 3;
+				hq_regiser_hw_info(HWID_LCM, "incell, vendor:sharp, IC:ft8716(focal)");
+			} else if (!strcmp(panel_name, "qcom,mdss_dsi_ili7807_fhd_video")) {
+				hq_regiser_hw_info(HWID_LCM, "GFF, vendor:EBBG, IC:ili7807(ilitek)");
+			} else if (!strcmp(panel_name, "qcom,mdss_dsi_nt35596_tianma_fhd_video_c6lite")) {
+				hq_regiser_hw_info(HWID_LCM, "GFF, vendor:Tianma, IC:NT35596(novatek)");
+				}
 		mdss_node = of_parse_phandle(pdev->dev.of_node,
 			"qcom,mdss-mdp", 0);
 		if (!mdss_node) {
@@ -3166,6 +3243,7 @@ static int mdss_dsi_get_bridge_chip_params(struct mdss_panel_info *pinfo,
 end:
 	return rc;
 }
+struct mdss_panel_data *panel_data;
 
 static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 {
@@ -3259,6 +3337,7 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	} else {
 		ctrl_pdata->bklt_ctrl = UNKNOWN_CTRL;
 	}
+	panel_data = &ctrl_pdata->panel_data;
 
 	rc = dsi_panel_device_register(pdev, dsi_pan_node, ctrl_pdata);
 	if (rc) {
@@ -4064,6 +4143,48 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 
 }
 
+u32 te_count;
+static irqreturn_t te_interrupt(int irq, void *data)
+{
+	disable_irq_nosync(irq);
+
+	te_count++;
+
+	enable_irq(irq);
+	return IRQ_HANDLED;
+}
+
+int init_te_irq(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int rc = -1;
+	int irq;
+	if (gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
+		rc = gpio_request(ctrl_pdata->disp_te_gpio, "te-gpio");
+		if (rc < 0) {
+			pr_err("%s: gpio_request fail rc=%d\n", __func__, rc);
+			return rc ;
+		}
+		rc = gpio_direction_input(ctrl_pdata->disp_te_gpio);
+		if (rc < 0) {
+			pr_err("%s: gpio_direction_input fail rc=%d\n", __func__, rc);
+			return rc ;
+		}
+		irq = gpio_to_irq(ctrl_pdata->disp_te_gpio);
+		pr_err("%s:liujia  irq = %d\n", __func__, irq);
+			rc = request_threaded_irq(irq, te_interrupt, NULL,
+				 IRQF_TRIGGER_RISING|IRQF_ONESHOT,
+				"te-irq", ctrl_pdata);
+		if (rc < 0) {
+			pr_err("%s: request_irq fail rc=%d\n", __func__, rc);
+			return rc ;
+		}
+	} else{
+		pr_err("%s:liujia irq gpio not provided\n", __func__);
+		return rc ;
+	}
+	return 0;
+}
+
 static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -4226,7 +4347,10 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 	if (ctrl_pdata->status_mode == ESD_REG ||
 			ctrl_pdata->status_mode == ESD_REG_NT35596)
 		ctrl_pdata->check_status = mdss_dsi_reg_status_check;
-	else if (ctrl_pdata->status_mode == ESD_BTA)
+	else if (ctrl_pdata->status_mode == ESD_TE_NT35596) {
+		ctrl_pdata->check_status = mdss_dsi_TE_NT35596_check;
+	        init_te_irq(ctrl_pdata);
+	} else if (ctrl_pdata->status_mode == ESD_BTA)
 		ctrl_pdata->check_status = mdss_dsi_bta_status_check;
 
 	if (ctrl_pdata->status_mode == ESD_MAX) {
