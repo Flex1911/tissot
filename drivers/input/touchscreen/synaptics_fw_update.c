@@ -1,7 +1,6 @@
 /*
  * Synaptics RMI4 touchscreen driver
  *
- * Copyright (C) 2012 Synaptics Incorporated
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
@@ -411,7 +410,7 @@ static int parse_header(void)
 	}
 	/* get config offset*/
 	if (img->config_size) {
-		// FW_IMAGE_OFFSET + image_size was ok as above
+
 		if (!in_bounds(FW_IMAGE_OFFSET + img->image_size,
 			       img->config_size, fwu->full_update_size)) {
 			dev_err(&fwu->rmi4_data->i2c_client->dev,
