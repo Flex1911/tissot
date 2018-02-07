@@ -11,10 +11,10 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8953-qrd.dtsi"
+#include "msm8953-qrd_c6lite.dtsi"
 
 &spmi_bus {
-	qcom,pmi8940@3 {
+	qcom,pmi8950@3 {
 		labibb: qpnp-labibb-regulator {
 			ibb_regulator: qcom,ibb@dc00 {
 				/delete-property/
@@ -71,7 +71,7 @@
 	ibb-supply = <&ibb_regulator>;
 	/delete-property/ vdd-supply;
 
-	qcom,dsi-pref-prim-pan = <&dsi_nt35596_tianma_fhd_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_nt35596_tianma_fhd_c6lite_vid>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
@@ -87,8 +87,13 @@
 	status = "ok";
 	qpnp,qpnp-labibb-mode = "lcd";
 };
-/*** temporaryly Add for C6lite ***/
+
 &dsi_nt35532_fhd_c6lite_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
+&dsi_nt35596_fhd_vid {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 
 };
@@ -107,40 +112,8 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 
 };
-/*** will remove after P0 ***/
 
-&dsi_ili7807_fhd_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-
-};
-
-
-&dsi_ft8716_fhd_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-
-};
-
-&dsi_otm1911_fhd_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-
-};
-
-&dsi_td4310_fhd_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-
-};
-
-&dsi_nt35532_fhd_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-
-};
-
-&dsi_nt35596_fhd_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-
-};
-
-&dsi_nt35596_tianma_fhd_vid {
+&dsi_ili9885_boe_fhd_c6lite_vid {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 
 };

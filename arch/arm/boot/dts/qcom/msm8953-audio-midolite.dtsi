@@ -18,7 +18,6 @@
 
 	qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
 	qcom,msm-spk-ext-pa = <&tlmm 96 0>;
-	qcom,msm-hd-ext-pa = <&tlmm 141 0>;
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
 	qcom,msm-hs-micbias-type = "internal";
