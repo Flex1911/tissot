@@ -48,6 +48,7 @@
 #include <linux/vmpressure.h>
 #include <linux/zcache.h>
 
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/almk.h>
 
@@ -112,6 +113,13 @@ static int enable_adaptive_lmk;
 module_param_named(enable_adaptive_lmk, enable_adaptive_lmk, int,
 	S_IRUGO | S_IWUSR);
 
+extern int version_judge;
+
+int version_judge;
+static int version_set(const char *val, struct kernel_param *kp);
+static int get_version;
+module_param_call(get_version, version_set, param_get_int, &get_version, 0644);
+
 /*
  * This parameter controls the behaviour of LMK when vmpressure is in
  * the range of 90-94. Adaptive lmk triggers based on number of file
@@ -119,6 +127,10 @@ module_param_named(enable_adaptive_lmk, enable_adaptive_lmk, int,
  * 90-94. Usually this is a pseudo minfree value, higher than the
  * highest configured value in minfree array.
  */
+
+
+
+
 static int vmpressure_file_min;
 module_param_named(vmpressure_file_min, vmpressure_file_min, int,
 	S_IRUGO | S_IWUSR);
@@ -128,6 +140,17 @@ enum {
 	VMPRESSURE_ADJUST_ENCROACH,
 	VMPRESSURE_ADJUST_NORMAL,
 };
+
+static int version_set(const char *val, struct kernel_param *kp)
+{
+	int ret;
+	ret = param_set_int(val, kp);
+     if (ret)
+		 return ret;
+	version_judge = get_version;
+	return 0;
+ }
+
 
 int adjust_minadj(short *min_score_adj)
 {
