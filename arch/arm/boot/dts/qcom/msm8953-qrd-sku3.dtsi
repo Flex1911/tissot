@@ -87,27 +87,6 @@
 	status = "ok";
 	qpnp,qpnp-labibb-mode = "lcd";
 };
-/*** temporaryly Add for C6lite ***/
-&dsi_nt35532_fhd_c6lite_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-
-};
-
-&dsi_nt35596_tianma_fhd_c6lite_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-
-};
-
-&dsi_otm1911_fhd_c6lite_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-
-};
-
-&dsi_r63350_ebbg_fhd_c6lite_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-
-};
-/*** will remove after P0 ***/
 
 &dsi_ili7807_fhd_vid {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
