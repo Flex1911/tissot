@@ -2967,9 +2967,8 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 				hq_regiser_hw_info(HWID_LCM, "incell, vendor:sharp, IC:ft8716(focal)");
 			} else if (!strcmp(panel_name, "qcom,mdss_dsi_ili7807_fhd_video")) {
 				hq_regiser_hw_info(HWID_LCM, "GFF, vendor:EBBG, IC:ili7807(ilitek)");
-			} else if (!strcmp(panel_name, "qcom,mdss_dsi_nt35596_tianma_fhd_video_c6lite")) {
-				hq_regiser_hw_info(HWID_LCM, "GFF, vendor:Tianma, IC:NT35596(novatek)");
 				}
+
 		mdss_node = of_parse_phandle(pdev->dev.of_node,
 			"qcom,mdss-mdp", 0);
 		if (!mdss_node) {
